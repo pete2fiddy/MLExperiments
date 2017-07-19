@@ -13,7 +13,7 @@ class LinearRegression:
         for i in range(0, mat.shape[0]):
             for j in range(0, mat.shape[1]):
                 mat[i,j] = np.sum((self.X[:, i] * self.X[:,j]).dot(self.data_weights.T))
-
+        
         mat_product = np.zeros((self.X.shape[1]))
         for i in range(0, mat_product.shape[0]):
             mat_product[i] = np.sum((self.y * self.X[:, i]).dot(self.data_weights))

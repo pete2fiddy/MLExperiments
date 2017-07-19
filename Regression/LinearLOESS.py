@@ -17,9 +17,6 @@ class LinearLOESS:
 
     def predict(self, x):
         X_subset, y_subset, weight_subset = self.weight_func(x)
-        print("X subset: ", X_subset)
-        print("y subset: ", y_subset)
-        print("weight subset: ", weight_subset)
         lin_regression = LinearRegression(X_subset, y_subset, weight_subset)
         lin_regression.train()
         return lin_regression.predict(x)
@@ -28,6 +25,7 @@ class LinearLOESS:
         x_distances = np.linalg.norm(self.X - x, axis = 1)
         x_distances /= self.x_window / 2
         indices_in_window = np.where(x_distances < 1)[0]
+
         point_weights = (1.0 - x_distances**3)**3
 
         X_subset_in_window = self.X[indices_in_window, :]
