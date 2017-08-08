@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 
-class Classifiable:
+class Classifiable(ABC):
 
     def predict_set(self, X):
         predictions = []
