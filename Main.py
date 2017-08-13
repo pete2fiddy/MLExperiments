@@ -19,6 +19,9 @@ from Classification.MultiClass.OneVRestClassifier import OneVRestClassifier
 from Stats.NormalDistribution.MultiVariateGaussian import MultiVariateGaussian
 from Unsupervised.Cluster.GaussianMixtureModel import GaussianMixtureModel
 import Visualize.ClusterVisualizer as ClusterVisualizer
+import scipy
+import mido
+from Sequence.HMM.CompleteDiscreteHMM import CompleteDiscreteHMM
 '''should look up the types of multi classification methods
 and implement them, rather than duplicate code a lot'''
 
@@ -26,6 +29,99 @@ and implement them, rather than duplicate code a lot'''
 intensity at pixel(x,y) across all pixels, could try generating images'''
 '''might be doing gaussian discriminant analysis wrong?'''
 
+
+midi_path = "C:/Users/Peter/Desktop/Free Time CS Projects/ML Experimenting/Data/Music/BachMIDIs/802-805/BWV803.MID"
+midi = mido.MidiFile(midi_path)
+
+
+
+Z = []
+for msg in midi:
+    if msg.type == 'note_on':
+        Z.append(msg.note)
+song_length = 100
+print("full song length: ", len(Z))
+Z = np.array(Z)[:song_length]
+
+
+def add_noise_to_hidden_states(Z, std_dev):
+    noise_adds = np.random.normal(loc = 0.0, scale = std_dev, size = Z.shape)
+    noise_adds = np.rint(noise_adds).astype(np.int)
+    X_out = Z.copy()
+    X_out += noise_adds
+    X_out[X_out < Z.min()] = Z.min()
+    X_out[X_out > Z.max()] = Z.max()
+    return X_out
+X = add_noise_to_hidden_states(Z, 1.0)
+X -= X.min()
+Z -= Z.min()
+
+def make_unique(mat):
+    unique_vals = np.unique(mat)
+    print("Max unique vals: ", unique_vals.max())
+    print("Min unique vals: ", unique_vals.min())
+    new_mat = np.zeros(mat.shape, dtype = np.int)
+    for i in range(0, unique_vals.shape[0]):
+        new_mat[mat == unique_vals[i]] = i
+    return new_mat
+
+'''setting X to Z for testing purposes'''
+#X = Z.copy()
+
+print("X: ", X[:10])
+print("Z: ", Z[:10])
+X = make_unique(X)
+Z = make_unique(Z)
+
+print("Max X: ", X.max(), "Min X: ", X.min())
+hmm = CompleteDiscreteHMM(X,Z)
+hmm.train(2000)
+
+
+
+
+
+
+'''
+data_path = "C:/Users/Peter/Desktop/Free Time CS Projects/ML Experimenting/Data/mixoutALL_shifted.mat"
+handwriting_X = scipy.io.loadmat(data_path)
+X_old = handwriting_X["mixout"][0]
+X = []
+Z = []
+num_angle_bins = 16
+bins = np.arange(num_angle_bins)*360.0/num_angle_bins
+for i in range(0, X_old.shape[0]):
+    append_X_vels = X_old[i].T[:, :2]
+    append_X_angles = np.rad2deg(np.arctan2(append_X_vels[:,1], append_X_vels[:,0]))%360
+    discrete_X_angles = np.digitize(append_X_angles, bins)-1
+    #X.append(discrete_X_angles)
+    X.append(append_X_vels)
+    Z.append(discrete_X_angles)
+
+y = handwriting_X["consts"][0,0]["charlabels"][0]
+
+learn_character_index = 1
+set_indices = np.where(y == learn_character_index)[0]
+
+X_subset = [X[set_indices[i]] for i in range(0, len(set_indices))]
+Z_subset = [Z[set_indices[i]] for i in range(0, len(set_indices))]
+y_subset = y[set_indices]
+#print("X subset[0]: ", X_subset[0])
+
+print("X")
+hmm = HandwritingHMM(X_subset, Z_subset, 30.0, num_angles = 16)
+hmm.train()
+
+'''
+
+
+
+
+
+
+
+
+'''
 X_all, y_all = datasets.load_iris(return_X_y = True)
 X = X_all[:, [1,2]]
 
@@ -37,6 +133,7 @@ y = y_all[:]
 y_test = y_all[:]
 X_test = X_all[:, [1,2]]
 '''
+'''
 X = np.array([[0,1],
               [.5,.5],
               [1,0],
@@ -44,6 +141,7 @@ X = np.array([[0,1],
               [3, 3],
               [2, 4]], dtype = np.float32)
 y = np.array([1, 1, 1, 0, 0, 0], dtype = np.float32)
+'''
 '''
 kernel = RadialBias(100.0)## LinearKernel()
 svm = OneVRestClassifier(X,y,SupportVectorMachine,SupportVectorMachine.functional_margin,soft_margin_weight = 100.0, kernel = kernel)#MultiClassSVM(X, y, soft_margin_weight = 10.0, kernel = kernel)
@@ -54,6 +152,7 @@ svm.train()
 model_predicts = svm.predict_set(X_test)
 X_pos = X[y == 1]
 X_neg = X[y == 0]
+'''
 
 '''
 New thing to try: Gaussian mixture model(like KMeans but uses probability of fitting
@@ -64,6 +163,7 @@ model responses for each correct class of point in training set
 
 COuld run a decision tree on model outputs to predict associated class
 '''
+'''
 indices_where_model_predicts_y = np.where(model_predicts == y)[0]
 num_correct = indices_where_model_predicts_y.shape[0]
 percent_correct = num_correct/y.shape[0]
@@ -73,7 +173,7 @@ ClassifyVisualize.plot_decision_bounds(X, y, svm, fill = True)
 ClassifyVisualize.plot_data(X, y)
 
 plt.show()
-
+'''
 
 '''
 try doing fisher's discriminant analysis,
