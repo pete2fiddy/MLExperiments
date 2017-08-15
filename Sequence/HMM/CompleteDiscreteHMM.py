@@ -3,7 +3,11 @@ import numpy as np
 '''an HMM used for models with discrete observation and
 state spaces'''
 class CompleteDiscreteHMM:
-    SMOOTH_PARAM = 0#float(10.0**-100.0)
+    '''setting SMOOTH_PARAM too low seems to make the probability of the
+    set hover between two values while training. Setting too high
+    makes model never train parameters. Appropriate value seems to be dependent
+    upon the length of training sequence'''
+    SMOOTH_PARAM = float(10.0**-320.0)
     '''may want to laplace smooth somehow based on the number of instances
     of a certain hidden/observed state occurring rather than just adding
     the smooth param to the numerator and denominators of each matrix?'''
@@ -13,7 +17,6 @@ class CompleteDiscreteHMM:
         self.num_states = self.z.max()+1
         self.num_observables = self.x.max()+1
         self.init_mats()
-        #print("smooth param: ", CompleteDiscreteHMM.SMOOTH_PARAM)
     def init_mats(self):
 
         self.initial_probs = np.full((self.num_states), 1.0/self.num_states)#np.random.rand(self.num_states)##np.ones(self.num_states)
@@ -31,8 +34,12 @@ class CompleteDiscreteHMM:
             self.train_step()
             if iter % 10 == 0:
                 set_prob = self.probability_of_sequence_at_time(self.x, 8)
-                rand_set_prob = self.probability_of_sequence_at_time(self.generate_random_observations(9), 8)
-                print("self.x performance: {}, rand set performance: {}".format(set_prob, rand_set_prob), end = '\r')
+                rand_set_prob = self.probability_of_sequence_at_time(self.generate_random_observations(10), 8)
+                best_prob_path, best_prob = self.viterbi(self.x[:9])
+                print("best prob path: {}, best path prob: {}".format(best_prob_path, best_prob))#, end = '\r')
+                print("self.Z: ", self.z[:9])
+                #print("self.x performance: {}, rand set performance: {}".format(set_prob, rand_set_prob), end = '\r')
+
                 #print("probability of self.x: {} ".format(self.probability_of_sequence_at_time(self.x, self.x.shape[0]-1)), end = '\r')
                 #print("probability of random x: {}".format(self.probability_of_sequence_at_time(self.generate_random_observations(self.x.shape[0]), self.x.shape[0]-1)), end = '\r\r')
                 #print("-------------------------------------")
@@ -58,7 +65,7 @@ class CompleteDiscreteHMM:
 
                 A_new_denominator = np.sum(np.sum(gammas[:,i,:], axis = 0))
                 A_new[i,j] = (A_new_numerator + CompleteDiscreteHMM.SMOOTH_PARAM)/(A_new_denominator + CompleteDiscreteHMM.SMOOTH_PARAM*self.num_states)
-                #print("A_new at index: ", A_new[i,j])
+                #print("A_new[i,j]: ", A_new[i,j])
         #print("A_new sums: ", np.sum(A_new, axis = 1))
         #A_new_sums = np.sum(A_new, axis = 1)
         #A_new /= A_new_sums[:,np.newaxis]
@@ -75,6 +82,7 @@ class CompleteDiscreteHMM:
                 B_new_denominator = np.sum(np.sum(gammas[:,:,j], axis = 0))
 
                 B_new[j,k] = (B_new_numerator + CompleteDiscreteHMM.SMOOTH_PARAM)/(B_new_denominator + CompleteDiscreteHMM.SMOOTH_PARAM*self.num_observables)
+                #print("B_new[j,k]: ", B_new[j,k])
                 #B_new[j,k] = B_new_numerator
             #B_new[j,:] /= (np.sum(B_new[j,:])
             #print("B_new at index: ", B_new[j,0])
@@ -93,7 +101,9 @@ class CompleteDiscreteHMM:
         for t in range(0, gammas.shape[0]-1):
             for i in range(0, gammas.shape[1]):
                 for j in range(0, gammas.shape[2]):
-                    gammas[t,i,j] = alphas[t, i] * self.A[i,j] * self.B[j,x[t]] * betas[t+1, j]
+                    #gammas[t,i,j] = alphas[t, i] * self.A[i,j] * self.B[j,x[t]] * betas[t+1, j]
+                    gammas[t,i,j] = np.exp(alphas[t,i]) * (self.A[i,j])*(self.B[j,x[t]]) * np.exp(betas[t+1,j])
+        #print("gammas: ", gammas)
         return gammas
 
     '''both calc_alphas and step_alphas are verified to be working.
@@ -106,13 +116,20 @@ class CompleteDiscreteHMM:
             time_alphas[t] = self.step_alphas(x, t, prev_alphas = time_alphas[t-1])
         return time_alphas
 
+    '''calculating in alphas in log space now works'''
     def step_alphas(self, x, t, prev_alphas = None):
         if t == 0:
-            initial_alphas = self.initial_probs.copy()*self.B[:,x[t]]
+            initial_alphas = np.log(self.initial_probs.copy()) + np.log(self.B[:,x[t]])
             return initial_alphas
         alphas = np.zeros(self.A.shape[0])
         for j in range(0, alphas.shape[0]):
-            alphas[j] = self.B[j,x[t]] * np.sum(self.A[:,j] * prev_alphas)
+            '''prev_alphas does not need to have the log taken of it because it already
+            is in log form'''
+            log_sum_terms = np.log(self.B[j,x[t]]) + np.log(self.A[:,j]) + prev_alphas
+            max_log_sum_term = log_sum_terms.max()
+            alphas[j] = max_log_sum_term + np.log(np.sum(np.exp(log_sum_terms - max_log_sum_term)))
+
+        #print("alphas nan?: ", np.isnan(alphas).any())
         return alphas
 
     '''both calc_betas and step_betas are verified to be working.
@@ -125,17 +142,72 @@ class CompleteDiscreteHMM:
             time_betas[t] = self.step_betas(x, t, prev_betas = time_betas[t+1])
         return time_betas
 
+    '''calculating betas in log space now works'''
     def step_betas(self, x, t, prev_betas = None):
         if t == x.shape[0]:
-            return np.ones(self.num_states)
+            #return np.ones(self.num_states)
+            return np.log(np.ones(self.num_states))
         elif t == 0:
-            return self.initial_probs * prev_betas * self.B[:,x[0]]
+            #return self.initial_probs * prev_betas * self.B[:,x[0]]
+
+            return np.log(self.initial_probs)  + np.log(self.B[:,x[0]]) + prev_betas
         betas = np.zeros(self.num_states)
         for i in range(0, betas.shape[0]):
-            betas[i] = np.sum(self.A[i,:] * self.B[:,x[t]] * prev_betas)
+            log_sum_terms = np.log(self.A[i,:]) + np.log(self.B[:,x[t]]) + prev_betas
+            max_log_sum_term = log_sum_terms.max()
+            #betas[i] = np.sum(self.A[i,:] * self.B[:,x[t]] * prev_betas)
+            betas[i] = max_log_sum_term + np.log(np.sum(np.exp(log_sum_terms - max_log_sum_term)))
+
+        #print("betas is NaN?: ", np.isnan(betas).any())
         return betas
+
+    def viterbi(self, x):
+        viterbi_probs = np.zeros((x.shape[0]+1, self.num_states))
+        #viterbi_probs[0,:] = self.initial_probs * self.B[:,x[0]]
+        #print("initial viterbi probs: ", viterbi_probs[0,:])
+        viterbi_paths = np.zeros((x.shape[0]+1, self.num_states), dtype = np.int)
+        for t in range(0, viterbi_probs.shape[0]):
+            self.step_viterbi_probs_and_paths(x, t, viterbi_probs, viterbi_paths)
+
+        #print("paths: ", viterbi_paths)
+        #print("probs: ", viterbi_probs)
+        max_prob_index = np.argmax(viterbi_probs[viterbi_probs.shape[0]-1])
+        max_prob_path_prob = viterbi_probs[viterbi_probs.shape[0]-1, max_prob_index]
+        max_prob_path = np.zeros(x.shape[0], dtype = np.int)
+        max_prob_path[max_prob_path.shape[0]-1] = viterbi_paths[viterbi_paths.shape[0]-1, max_prob_index]
+
+        for t in range(max_prob_path.shape[0]-2, 0, -1):
+            max_prob_path[t] = viterbi_paths[t+1, max_prob_path[t+1]]
+
+        '''max_prob_path_index = np.argmax(viterbi_probs[viterbi_probs.shape[0]-1])
+        max_prob_path = viterbi_paths[:, max_prob_path_index]
+        max_prob_path_prob = viterbi_probs[viterbi_probs.shape[0]-1, max_prob_path_index]
+        '''
+        '''max_prob_path = np.zeros(x.shape[0])
+        for t in range(0, max_prob_path.shape[0]):
+            max_prob_path[t] = viterbi_paths[t,np.argmax(viterbi_probs[t])]
+        max_prob_path_prob = 1.0'''
+        return max_prob_path, max_prob_path_prob
+
+    def step_viterbi_probs_and_paths(self, x, t, probs, paths):
+        if t == 0:
+            probs[0,:] = self.initial_probs * self.B[:,x[t]]
+            paths[0,:] = np.arange(0, probs.shape[1])
+        else:
+            for j in range(0, probs.shape[1]):
+                t_probs = probs[t-1] * self.B[j, x[t-1]] * self.A[paths[t-1], j]
+                #print("t_probs: ", t_probs)
+                '''t_probs = np.zeros(probs.shape[1])
+                for i in range(0, t_probs.shape[0]):
+                    t_probs[i] = probs[t-1,i] * self.B[j,x[t-1]] * self.A[paths[t-1,i],j]'''
+                probs[t, j] = np.max(t_probs)
+                paths[t, j] = np.argmax(t_probs)
+
+
+
 
     def probability_of_sequence_at_time(self, x, t):
         alphas = self.calc_alphas(x)
         alpha_sums = np.sum(alphas, axis = 1)
-        return np.sum(alphas[t])
+        #print("exp alphas: ", (np.exp(alphas[t])))
+        return np.sum(np.exp(alphas[t]))

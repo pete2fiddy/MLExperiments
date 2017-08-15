@@ -21,7 +21,8 @@ from Unsupervised.Cluster.GaussianMixtureModel import GaussianMixtureModel
 import Visualize.ClusterVisualizer as ClusterVisualizer
 import scipy
 import mido
-from Sequence.HMM.CompleteDiscreteHMM import CompleteDiscreteHMM
+from Sequence.HMM.DiscreteHMM import DiscreteHMM
+from Sequence.MarkovModel.StochasticMarkovModel import StochasticMarkovModel
 '''should look up the types of multi classification methods
 and implement them, rather than duplicate code a lot'''
 
@@ -30,7 +31,7 @@ intensity at pixel(x,y) across all pixels, could try generating images'''
 '''might be doing gaussian discriminant analysis wrong?'''
 
 
-midi_path = "C:/Users/Peter/Desktop/Free Time CS Projects/ML Experimenting/Data/Music/BachMIDIs/802-805/BWV803.MID"
+midi_path = "C:/Users/Peter/Desktop/Free Time CS Projects/ML Experimenting/Data/Music/BachMIDIs/802-805/BWV804.MID"
 midi = mido.MidiFile(midi_path)
 
 
@@ -40,43 +41,25 @@ for msg in midi:
     if msg.type == 'note_on':
         Z.append(msg.note)
 song_length = 100
-print("full song length: ", len(Z))
+
 Z = np.array(Z)[:song_length]
 
 
-def add_noise_to_hidden_states(Z, std_dev):
-    noise_adds = np.random.normal(loc = 0.0, scale = std_dev, size = Z.shape)
-    noise_adds = np.rint(noise_adds).astype(np.int)
-    X_out = Z.copy()
-    X_out += noise_adds
-    X_out[X_out < Z.min()] = Z.min()
-    X_out[X_out > Z.max()] = Z.max()
-    return X_out
-X = add_noise_to_hidden_states(Z, 1.0)
-X -= X.min()
-Z -= Z.min()
-
 def make_unique(mat):
     unique_vals = np.unique(mat)
-    print("Max unique vals: ", unique_vals.max())
-    print("Min unique vals: ", unique_vals.min())
+    #print("Max unique vals: ", unique_vals.max())
+    #print("Min unique vals: ", unique_vals.min())
     new_mat = np.zeros(mat.shape, dtype = np.int)
     for i in range(0, unique_vals.shape[0]):
         new_mat[mat == unique_vals[i]] = i
     return new_mat
 
-'''setting X to Z for testing purposes'''
-#X = Z.copy()
-
-print("X: ", X[:10])
-print("Z: ", Z[:10])
-X = make_unique(X)
 Z = make_unique(Z)
-
-print("Max X: ", X.max(), "Min X: ", X.min())
-hmm = CompleteDiscreteHMM(X,Z)
-hmm.train(2000)
-
+#print("Z: ", Z)
+hmm = DiscreteHMM(Z, 20)
+hmm.train(20)
+rand_x = hmm.generate_observed_states(20)
+print("rand_x: ", rand_x)
 
 
 
