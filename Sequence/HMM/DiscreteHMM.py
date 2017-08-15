@@ -4,7 +4,7 @@ class DiscreteHMM:
     '''laplace smoothing very finicky and requires obscenely low parameter values
     or else all probabilities for any set are equal. Need to fix'''
     DEFAULT_LAPLACE_SMOOTH_PARAM = 0#float(10**-300)
-    def __init__(self, x, num_states, initial_probs = None, laplace_smooth_param = None):
+    def __init__(self, x, num_states, laplace_smooth_param = None):
         self.x = x
         self.laplace_smooth_param = DiscreteHMM.DEFAULT_LAPLACE_SMOOTH_PARAM if laplace_smooth_param is None else laplace_smooth_param
         self.num_observables = self.x.max()+1
@@ -12,8 +12,7 @@ class DiscreteHMM:
         self.init_mats()
 
     def init_mats(self):
-        self.initial_probs = np.random.rand(self.num_states)
-        self.initial_probs /= np.sum(self.initial_probs)
+        self.initial_probs = np.full((self.num_states),(1.0/self.num_states))
         self.A = np.random.rand(self.num_states, self.num_states)
         self.A /= np.sum(self.A, axis = 1)[:, np.newaxis]
         self.B = np.random.rand(self.num_states, self.num_observables)
@@ -32,6 +31,8 @@ class DiscreteHMM:
         hmm.initial_probs =  np.array([.8, .2])
         return hmm
 
+
+    '''work with log of A and B as well'''
     '''
     (Likely because of laplace smoothing): Transition matrix approaches just the
     average of the number of indices in each row as number of iterations passed
@@ -44,18 +45,18 @@ class DiscreteHMM:
                 test_observation_length = 20
                 x_prob = self.probability_of_sequence(self.x[:test_observation_length])
                 rand_prob = self.probability_of_sequence(self.generate_random_observed_sequence(test_observation_length))
-                #print("self.x prob: ", x_prob)
-                #print("rand prob: ", rand_prob)
+
                 print("A: ", self.A[0,:])
+                print("B: ", self.B[0,:])
 
     def generate_random_observed_sequence(self, length):
         return(np.random.rand(length) * self.num_states).astype(np.int)
 
     def train_step(self):
-        alphas = self.calc_forwards(self.x, as_log = False)
-        betas = self.calc_backwards(self.x, as_log = False)
-        gammas = self.calc_gammas(self.x, alphas, betas)
-        self.A = self.step_A(gammas)
+        alphas = self.calc_forwards(self.x, as_log = True)
+        betas = self.calc_backwards(self.x, as_log = True)
+        gammas = self.calc_gammas(self.x, alphas, betas, as_log = True)
+        #self.A = self.step_A(gammas)
         self.B = self.step_B(gammas, self.x)
         prob_of_x = self.probability_of_sequence(self.x)
         print("prob of x: ", prob_of_x)
@@ -72,8 +73,7 @@ class DiscreteHMM:
 
     '''something wrong with this function. Returns NaNs without laplace smoothing.
     Only updating A causes the probability of the training sequence to increase
-    every iteration. Stepping B makes it stutter around and is random.
-    Try switching EVERYTHING to log space, may remedy this issue.'''
+    every iteration. Stepping B makes it stutter around and is random.'''
     def step_B(self, gammas, x):
         B_new = np.zeros(self.B.shape, dtype = np.float64)
         '''speed up using numpy'''
@@ -83,7 +83,6 @@ class DiscreteHMM:
                 B_new_numerator = np.sum(np.sum(gammas[:,:,j] * numerator_sum_coefficients[:,np.newaxis], axis = 0))
                 B_new_denominator = np.sum(np.sum(gammas[:,:,j], axis = 0))
                 B_new[j,k] = (B_new_numerator + self.laplace_smooth_param)/(B_new_denominator + self.laplace_smooth_param * self.num_observables)
-        print("B_new sums: ", np.sum(B_new, axis = 1))
         return B_new
 
     def probability_of_sequence(self, x):
@@ -140,13 +139,14 @@ class DiscreteHMM:
 
     '''calculates a variable created from emission, transition, forward, and
     backwards probabilities. Used for training'''
-    def calc_gammas(self, x, alphas, betas):
-        '''checks to make sure alpha and betas are valid (sum to one). Them not being
-        valid points to either an error, or them still being in log form'''
+    def calc_gammas(self, x, alphas, betas, as_log = False):
+        '''expects alphas and betas to be in log form'''
         gammas = np.zeros((alphas.shape[0],) + self.A.shape, dtype = np.float64)
         '''try to speed up with numpy operations'''
         for t in range(0, gammas.shape[0]):
             for i in range(0, gammas.shape[1]):
                 for j in range(0, gammas.shape[2]):
-                    gammas[t,i,j] = alphas[t,i] * self.A[i,j] * self.B[j,x[t]] * betas[t+1,j]
-        return gammas
+                    gammas[t,i,j] = alphas[t,i] + np.log(self.A[i,j]) + np.log(self.B[j,x[t]]) + betas[t+1,j]
+        if as_log:
+            return gammas
+        return np.exp(gammas)

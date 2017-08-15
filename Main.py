@@ -57,7 +57,7 @@ def make_unique(mat):
 Z = make_unique(Z)
 #print("Z: ", Z)
 hmm = DiscreteHMM(Z, 20)
-hmm.train(20)
+hmm.train(100)
 rand_x = hmm.generate_observed_states(20)
 print("rand_x: ", rand_x)
 
