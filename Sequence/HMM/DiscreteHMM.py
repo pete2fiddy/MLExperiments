@@ -3,7 +3,9 @@ import numpy as np
 class DiscreteHMM:
     '''laplace smoothing very finicky and requires obscenely low parameter values
     or else all probabilities for any set are equal. Need to fix'''
-    DEFAULT_LAPLACE_SMOOTH_PARAM = 0#float(10**-300)
+    '''may need to change how laplace smoothing is added in when working entirely
+    in log space'''
+    DEFAULT_LAPLACE_SMOOTH_PARAM = float(10**-300)
     def __init__(self, x, num_states, laplace_smooth_param = None):
         self.x = x
         self.laplace_smooth_param = DiscreteHMM.DEFAULT_LAPLACE_SMOOTH_PARAM if laplace_smooth_param is None else laplace_smooth_param
@@ -42,12 +44,12 @@ class DiscreteHMM:
         for iter in range(0, max_iter):
             self.train_step()
             if iter % 1 == 0:
-                test_observation_length = 20
+                test_observation_length = 100
                 x_prob = self.probability_of_sequence(self.x[:test_observation_length])
                 rand_prob = self.probability_of_sequence(self.generate_random_observed_sequence(test_observation_length))
 
-                print("A: ", self.A[0,:])
-                print("B: ", self.B[0,:])
+                #print("A: ", self.A[0,:])
+                #print("B: ", self.B[0,:])
 
     def generate_random_observed_sequence(self, length):
         return(np.random.rand(length) * self.num_states).astype(np.int)
@@ -55,8 +57,8 @@ class DiscreteHMM:
     def train_step(self):
         alphas = self.calc_forwards(self.x, as_log = True)
         betas = self.calc_backwards(self.x, as_log = True)
-        gammas = self.calc_gammas(self.x, alphas, betas, as_log = True)
-        #self.A = self.step_A(gammas)
+        gammas = self.calc_gammas(self.x, alphas, betas, as_log = False)
+        self.A = self.step_A(gammas)
         self.B = self.step_B(gammas, self.x)
         prob_of_x = self.probability_of_sequence(self.x)
         print("prob of x: ", prob_of_x)
@@ -82,6 +84,7 @@ class DiscreteHMM:
                 numerator_sum_coefficients = (x == k).astype(np.int)
                 B_new_numerator = np.sum(np.sum(gammas[:,:,j] * numerator_sum_coefficients[:,np.newaxis], axis = 0))
                 B_new_denominator = np.sum(np.sum(gammas[:,:,j], axis = 0))
+                '''not sure if should use / or - when working entirely in log space'''
                 B_new[j,k] = (B_new_numerator + self.laplace_smooth_param)/(B_new_denominator + self.laplace_smooth_param * self.num_observables)
         return B_new
 
@@ -139,6 +142,7 @@ class DiscreteHMM:
 
     '''calculates a variable created from emission, transition, forward, and
     backwards probabilities. Used for training'''
+    '''confirmed works in complete log space'''
     def calc_gammas(self, x, alphas, betas, as_log = False):
         '''expects alphas and betas to be in log form'''
         gammas = np.zeros((alphas.shape[0],) + self.A.shape, dtype = np.float64)
