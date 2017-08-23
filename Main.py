@@ -27,6 +27,8 @@ from Classification.NonLinear.NeuralNetwork.FeedForwardNN import FeedForwardNN
 from Function.Activation.Sigmoid import Sigmoid
 from Function.Cost.SquareError import SquareError
 from Function.Output.Softmax import Softmax
+from Function.Activation.TanH import TanH
+from Function.Activation.RELU import RELU
 '''should look up the types of multi classification methods
 and implement them, rather than duplicate code a lot'''
 
@@ -35,7 +37,8 @@ intensity at pixel(x,y) across all pixels, could try generating images'''
 '''might be doing gaussian discriminant analysis wrong?'''
 
 X_all, y_all = datasets.load_breast_cancer(return_X_y = True)
-X = X_all[:].astype(np.float64)
+X = X_all[:, [0,1]].astype(np.float64)
+#X = X/X.max()
 y = y_all[:]
 y_uniques = np.unique(y)
 
@@ -45,15 +48,16 @@ for unique_index in range(0, y_uniques.shape[0]):
     set_vec[unique_index] = 1
     y_modified[y == y_uniques[unique_index], :] = set_vec
 y_modified = y_modified.astype(np.float64)
-print("num unique in y: ", np.unique(y).shape)
-print("y_modified: ", y_modified)
-print("X in: ", X[0])
-print("X shape: ", X.shape)
-nn = FeedForwardNN(X, y_modified, Sigmoid, SquareError, Softmax,(5, 2,))
+
+nn = FeedForwardNN(X, y_modified, RELU(pos_slope = 1.0, neg_slope = 0.1), SquareError, Softmax,(5,5,2))
 print("responses: ", nn.forward(X[0]))
-nn.train(1000, batch_size = 5)
-
-
+try:
+    nn.train(1000000, batch_size = 30, learn_rate = 0.0001, bias_learn_rate = 0.0001)
+except:
+    print("Manually stopped")
+ClassifyVisualize.plot_data(X, y)
+ClassifyVisualize.plot_decision_bounds(X, y, nn)
+plt.show()
 
 
 
