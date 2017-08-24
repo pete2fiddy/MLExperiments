@@ -8,10 +8,3 @@ class ActFunc(ABC):
     @abstractmethod
     def d_func(val):
         pass
-
-    '''
-    @staticmethod
-    @abstractmethod
-    def multi_act_func(X):
-        pass
-    '''

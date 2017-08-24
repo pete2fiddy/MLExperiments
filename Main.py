@@ -29,6 +29,8 @@ from Function.Cost.SquareError import SquareError
 from Function.Output.Softmax import Softmax
 from Function.Activation.TanH import TanH
 from Function.Activation.RELU import RELU
+from Classification.NonLinear.DecisionTree.DecisionTree import DecisionTree
+
 '''should look up the types of multi classification methods
 and implement them, rather than duplicate code a lot'''
 
@@ -36,6 +38,19 @@ and implement them, rather than duplicate code a lot'''
 intensity at pixel(x,y) across all pixels, could try generating images'''
 '''might be doing gaussian discriminant analysis wrong?'''
 
+
+X, y = datasets.load_iris(return_X_y = True)
+#X /= np.amax(X, axis = 1)[:,np.newaxis]
+X = X[:,[0,1]]
+print("X shape: ", X.shape)
+decision_tree = DecisionTree(X, y, max_depth = 20, min_split_impurity = .05, reuse_features = True)
+decision_tree.train()
+decision_tree.predict_set(X)
+
+ClassifyVisualize.plot_decision_bounds(X, y, decision_tree)
+ClassifyVisualize.plot_data(X, y)
+plt.show()
+'''
 X_all, y_all = datasets.load_breast_cancer(return_X_y = True)
 X = X_all[:, [0,1]].astype(np.float64)
 #X = X/X.max()
@@ -58,7 +73,7 @@ except:
 ClassifyVisualize.plot_data(X, y)
 ClassifyVisualize.plot_decision_bounds(X, y, nn)
 plt.show()
-
+'''
 
 
 
