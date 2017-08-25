@@ -43,7 +43,7 @@ X, y = datasets.load_iris(return_X_y = True)
 #X /= np.amax(X, axis = 1)[:,np.newaxis]
 X = X[:,[0,1]]
 print("X shape: ", X.shape)
-decision_tree = DecisionTree(X, y, max_depth = 20, min_split_impurity = .05, reuse_features = True)
+decision_tree = DecisionTree(X, y, max_depth = 3, min_split_impurity = .01, reuse_features = True, min_samples_split = 2)
 decision_tree.train()
 decision_tree.predict_set(X)
 
