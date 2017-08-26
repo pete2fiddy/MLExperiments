@@ -30,6 +30,7 @@ from Function.Output.Softmax import Softmax
 from Function.Activation.TanH import TanH
 from Function.Activation.RELU import RELU
 from Classification.NonLinear.DecisionTree.DecisionTree import DecisionTree
+from Classification.Ensemble.RandomForest import RandomForest
 
 '''should look up the types of multi classification methods
 and implement them, rather than duplicate code a lot'''
@@ -42,12 +43,17 @@ intensity at pixel(x,y) across all pixels, could try generating images'''
 X, y = datasets.load_iris(return_X_y = True)
 #X /= np.amax(X, axis = 1)[:,np.newaxis]
 X = X[:,[0,1]]
-print("X shape: ", X.shape)
-decision_tree = DecisionTree(X, y, max_depth = 3, min_split_impurity = .01, reuse_features = True, min_samples_split = 2)
+'''print("X shape: ", X.shape)
+decision_tree = DecisionTree(X, y, max_depth = 6, min_split_impurity = .01, reuse_features = True, min_samples_split = 2)
 decision_tree.train()
 decision_tree.predict_set(X)
+'''
 
-ClassifyVisualize.plot_decision_bounds(X, y, decision_tree)
+'''need to implement a faster predict_set method for both decision tree and random forest'''
+forest = RandomForest(X, y, max_depth = 5, num_trees = 100)
+forest.train()
+
+ClassifyVisualize.plot_decision_bounds(X, y, forest)
 ClassifyVisualize.plot_data(X, y)
 plt.show()
 '''

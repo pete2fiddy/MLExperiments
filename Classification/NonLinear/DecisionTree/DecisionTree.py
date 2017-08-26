@@ -4,12 +4,12 @@ from Function.Homogeneity.GINIImpurity import GINIImpurity
 import Classification.SetHelper as SetHelper
 import Parameter.ParamHelper as ParamHelper
 class DecisionTree(Classifiable):
-    DEFAULT_PARAMS = dict(fork_func = GINIImpurity(), max_depth = 5, min_split_impurity = 0.1, min_samples_split = 2, reuse_features = True)
+    DEFAULT_PARAMS = dict(num_classes = None, fork_func = GINIImpurity(), max_depth = 5, min_split_impurity = 0.1, min_samples_split = 2, reuse_features = True)
     def __init__(self, X, y, **params):
         self.params = ParamHelper.filter_non_default_params(params, DecisionTree.DEFAULT_PARAMS)
         self.X = X
         self.y = y
-        self.num_classes = SetHelper.get_num_classes(self.y)
+        self.num_classes = SetHelper.get_num_classes(self.y) if self.params["num_classes"] is None else self.params["num_classes"]
 
     def train(self):
         first_pool = Pool(self.X, self.y, 0, np.arange(self.X.shape[1]).tolist(), self)
@@ -35,20 +35,19 @@ class TreeNode:
         remaining_fork_indices = self.parent_pool.remaining_fork_indices
         '''a given index (i,j) of fork_val_responses represents the impurity of the
         ith remaining_fork_indices and the split value:
-        (X[remaining_fork_indices[i+1],j] + X[remaining_fork_indices[i],j])/2'''
-        fork_val_responses = np.zeros((X.shape[0], len(remaining_fork_indices)))
-        print("fork val responses shape:", fork_val_responses.shape)
+        (X[i,remaining_fork_indices[j]] + X[i+1,remaining_fork_indices[j]])/2'''
+        fork_val_responses = np.zeros((X.shape[0]-1, len(remaining_fork_indices)))
         for i in range(0, fork_val_responses.shape[0]):
             for j in range(0, fork_val_responses.shape[1]):
                 fork_index = remaining_fork_indices[j]
-                fork_val = X[i, fork_index]
+                fork_val = (X[i, fork_index] + X[i+1, fork_index])/2.0
                 set_splits = self.split_set(X, fork_index, fork_val)
                 split_labels = [y[set_splits == False], y[set_splits == True]]
                 fork_val_responses[i,j] = self.params["fork_func"].calc_impurity(split_labels)
         min_impurity_index = np.where(fork_val_responses == fork_val_responses.min())
         min_impurity_index = (min_impurity_index[0][0], min_impurity_index[1][0])
         self.fork_index = remaining_fork_indices[min_impurity_index[1]]
-        self.fork_val = X[min_impurity_index[0], self.fork_index]
+        self.fork_val = (X[min_impurity_index[0], self.fork_index] + X[min_impurity_index[0]+1, self.fork_index])/2.0
 
     def init_pools(self):
         set_splits = self.split_set(self.parent_pool.X, self.fork_index, self.fork_val)
