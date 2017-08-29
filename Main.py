@@ -31,7 +31,13 @@ from Function.Activation.TanH import TanH
 from Function.Activation.RELU import RELU
 from Classification.NonLinear.DecisionTree.DecisionTree import DecisionTree
 from Classification.Ensemble.RandomForest import RandomForest
+from Distribution.NonParametric.BernoulliMixtureModel import BernoulliMixtureModel
+from sklearn.datasets import fetch_mldata
+from PIL import Image
+from Projects.DinoGame.ChromeDinoGameBot2 import ChromeDinoGameBot2
+import time
 
+from mss import mss
 '''should look up the types of multi classification methods
 and implement them, rather than duplicate code a lot'''
 
@@ -40,22 +46,7 @@ intensity at pixel(x,y) across all pixels, could try generating images'''
 '''might be doing gaussian discriminant analysis wrong?'''
 
 
-X, y = datasets.load_iris(return_X_y = True)
-#X /= np.amax(X, axis = 1)[:,np.newaxis]
-X = X[:,[0,1]]
-'''print("X shape: ", X.shape)
-decision_tree = DecisionTree(X, y, max_depth = 6, min_split_impurity = .01, reuse_features = True, min_samples_split = 2)
-decision_tree.train()
-decision_tree.predict_set(X)
-'''
 
-'''need to implement a faster predict_set method for both decision tree and random forest'''
-forest = RandomForest(X, y, max_depth = 5, num_trees = 100)
-forest.train()
-
-ClassifyVisualize.plot_decision_bounds(X, y, forest)
-ClassifyVisualize.plot_data(X, y)
-plt.show()
 '''
 X_all, y_all = datasets.load_breast_cancer(return_X_y = True)
 X = X_all[:, [0,1]].astype(np.float64)
@@ -70,6 +61,7 @@ for unique_index in range(0, y_uniques.shape[0]):
     y_modified[y == y_uniques[unique_index], :] = set_vec
 y_modified = y_modified.astype(np.float64)
 
+print("y_modified shape: ", y_modified.shape)
 nn = FeedForwardNN(X, y_modified, RELU(pos_slope = 1.0, neg_slope = 0.1), SquareError, Softmax,(5,5,2))
 print("responses: ", nn.forward(X[0]))
 try:
@@ -78,8 +70,73 @@ except:
     print("Manually stopped")
 ClassifyVisualize.plot_data(X, y)
 ClassifyVisualize.plot_decision_bounds(X, y, nn)
-plt.show()
+plt.show()'''
+
+
+dino_bot = ChromeDinoGameBot2((550, 315, 800, 200), 1)
+time.sleep(3)
+dino_bot.start()
+
+'''print("X shape: ", X.shape)
+decision_tree = DecisionTree(X, y, max_depth = 6, min_split_impurity = .01, reuse_features = True, min_samples_split = 2)
+decision_tree.train()
+decision_tree.predict_set(X)
 '''
+
+'''need to implement a faster predict_set method for both decision tree and random forest'''
+'''forest = RandomForest(X, y, max_depth = 5, num_trees = 50)
+forest.train()
+
+ClassifyVisualize.plot_decision_bounds(X, y, forest)
+ClassifyVisualize.plot_data(X, y)
+plt.show()'''
+
+mnist = fetch_mldata('MNIST original', data_home = 'C:/Users/Peter/sklearn_datasets')#datasets.load_digits()#
+X = mnist.data
+print("X shape: ", X.shape)
+print("X: ", X.max())
+y = mnist.target
+#X = X[y == 0]
+#X[X < 128]=0
+#X[X != 0] = 1
+#X = X.astype(np.float64)
+
+
+mixtures = []
+num_berns = 30
+smooth_amount = 10**-300
+n_numbers = 10
+round_number = 128
+for i in range(0, n_numbers):
+    X_i = X[y==i]
+    X_i[X_i < round_number] = 0
+    X_i[X_i != 0] = 1
+    X_i = X_i.astype(np.float64)
+    mixtures.append(BernoulliMixtureModel(X_i, num_berns, smooth_amount))
+    mixtures[i].train(50)
+
+
+sub_X = X[y < n_numbers]
+sub_y = y[y < n_numbers]
+
+bern_probs = np.zeros((len(mixtures), sub_X.shape[0]))
+for i in range(0, bern_probs.shape[0]):
+    bern_probs[i] = mixtures[i].probability_of_set(sub_X)
+
+y_predict = np.argmax(bern_probs, axis = 0)
+y_correct = np.count_nonzero(y_predict == sub_y)
+print("% correct: ", y_correct/sub_X.shape[0])
+
+
+
+#X = X.reshape((X.shape[0], X.shape[1]*X.shape[2]))
+#print("X[0]: ", X[0])
+
+#Image.fromarray(np.uint8(255*X[0].reshape(28,28))).show()
+#bmm = BernoulliMixtureModel(X, 5, .01)
+#bmm.train(100)
+
+
 
 
 

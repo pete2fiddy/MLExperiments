@@ -35,6 +35,10 @@ class RandomForest(Classifiable):
 
 
     def predict(self, x):
+        '''to make run faster, at each point, figure out if it is even possible
+        for any other category to be chosen other than the one that is currently
+        most voted for. Do so by assessing if second to max class vote can possibly
+        exceed the first vote in the remaining number of trees. '''
         predictions = np.zeros(self.num_classes)
         for i in range(0, len(self.trees)):
             x_subset = x[self.tree_features[i]]

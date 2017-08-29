@@ -17,7 +17,6 @@ class FeedForwardNN(Classifiable):
         self.out_func = out_func
         self.init_weights()
         self.init_biases()
-        print("biases shape: ", len(self.biases))
 
     def init_weights(self):
         self.weights = []
@@ -36,7 +35,6 @@ class FeedForwardNN(Classifiable):
         return len(self.shape)
 
     def forward(self, x):
-        '''no bias added in yet'''
         layer_responses = []
         layer_responses.append(x.copy())
         for l in range(0, len(self.weights)-1):
@@ -58,9 +56,7 @@ class FeedForwardNN(Classifiable):
                 bias_grads = self.create_empty_biases()
 
                 for j in range(0, X.shape[0]):
-                    layer_responses = self.forward(X[j])
-                    iter_grads = self.calc_weight_gradients(X[j], y[j], layer_responses)
-                    iter_bias_grads = self.calc_bias_gradients(layer_responses)
+                    iter_grads, iter_bias_grads = self.get_stochastic_gradient(X[j], y[j])
 
                     for k in range(0, len(weight_grads)):
                         weight_grads[k] += iter_grads[k]
@@ -80,6 +76,18 @@ class FeedForwardNN(Classifiable):
 
             cost = np.sum(self.cost_func.cost_func(outputs, self.y))
             print("percent correct: {}, cost: {}".format(num_correct/self.X.shape[0], cost), end = '\r')
+
+    def train_step(self, x, y, learn_rate = 0.00005, bias_learn_rate = 0.005):
+        grads, bias_grads = self.get_stochastic_gradient(x, y)
+        for i in range(0, len(grads)):
+            self.weights[i] -= grads[i] * learn_rate
+            self.biases[i] -= bias_grads[i] * bias_learn_rate
+
+    def get_stochastic_gradient(self, x, y):
+        layer_responses = self.forward(x)
+        iter_grads = self.calc_weight_gradients(x, y, layer_responses)
+        iter_bias_grads = self.calc_bias_gradients(layer_responses)
+        return iter_grads, iter_bias_grads
 
     def create_empty_weight_matrices(self):
         weights = []
