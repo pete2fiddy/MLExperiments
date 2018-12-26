@@ -123,11 +123,9 @@ class FeedForwardNN(Classifiable):
         d_outs = self.out_func.d_func(output)
         grads = np.outer(d_sums, d_costs * d_outs)
         return grads
-
-    '''biases gradient calculation may not be done correctly'''
-    '''end up calculating the derivative of the nodes twice, once here and once
-    in normal weights gradient calculation. Would be best to somehow pass around
-    the derivatives of the nodes'''
+    '''almost certain this does not calculate bias gradients correctly, as this would require
+    accounting for the derivatives of the next layer while this only accounts for layer derivatives.
+    I.e. there is no propagation through the network'''
     def calc_bias_gradients(self, layer_responses):
         bias_grads = []
         for l in range(1, len(self)+1):
